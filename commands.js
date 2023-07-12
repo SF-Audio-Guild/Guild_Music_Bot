@@ -15,6 +15,18 @@ const commands = [
     ],
   },
   {
+    name: "splay",
+    description: "Plays music from a URL and shuffles the queue",
+    options: [
+      {
+        name: "query",
+        type: 3,
+        description: "The song or playlist you want to play",
+        required: true,
+      },
+    ],
+  },
+  {
     name: "skip",
     description: "Skip the current song",
   },
@@ -25,6 +37,14 @@ const commands = [
   {
     name: "shuffle",
     description: "Shuffle the player",
+  },
+  {
+    name: "clear",
+    description: "Clear the queue",
+  },
+  {
+    name: "list",
+    description: "List out the tracks in the queue",
   },
 ]
 
