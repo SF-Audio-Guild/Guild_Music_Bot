@@ -60,7 +60,7 @@ player.on("connectionError", (queue, error) => {
 // });
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isCommand() || !interaction.guildId) return;
+  if (!interaction.isCommand() || !interaction.guild.id) return;
 
   if (
     !(interaction.member instanceof GuildMember) ||
@@ -97,16 +97,48 @@ client.on("interactionCreate", async (interaction) => {
 
       try {
         const channel = interaction.member.voice.channel;
-        if (!channel)
+        if (!channel) {
           return interaction.reply("You are not connected to a voice channel!");
+        }
+
+        // get query
         const query = interaction.options.getString("query", true);
-        const { track } = await player.play(channel, query, {
-          nodeOptions: {
+        // handle queue
+        let queue = useQueue(interaction.guild.id);
+        if (!queue) {
+          const queue = player.nodes.create(interaction.guild.id, {
             metadata: interaction,
-          },
-        });
-        const queue = useQueue(interaction.guild.id);
-        queue.tracks.shuffle();
+          });
+          const result = await player.search(query);
+          // acquire task entry
+          const entry = queue.tasksQueue.acquire();
+          // wait for previous task to be released and our task to be resolved
+          await entry.getTask();
+          // connect
+          await queue.connect(channel);
+          // add track(s) (this will add playlist or single track from the result)
+          if (!result.playlist) {
+            queue.addTrack(result.tracks[0]);
+          } else {
+            queue.addTrack(result.playlist);
+          }
+          // shuffle
+          queue.tracks.shuffle();
+          // if player node was not previously playing, play a song
+          await queue.node.play(null);
+          // release the task we acquired to let other tasks to be executed
+          // make sure you are releasing your entry, otherwise your bot won't
+          // accept new play requests
+          queue.tasksQueue.release();
+        } else {
+          const { track } = await player.play(channel, query, {
+            nodeOptions: {
+              metadata: interaction,
+            },
+          });
+          // shuffle
+          queue.tracks.shuffle();
+        }
 
         return interaction.followUp("Shuffle playing your tracks");
       } catch (e) {
@@ -164,8 +196,11 @@ client.on("interactionCreate", async (interaction) => {
         const queue = useQueue(interaction.guild.id);
         const tracks = queue.tracks.toJSON();
         const list = [];
+        list.push(queue.currentTrack.toJSON().title);
         for (var track of tracks) list.push(track.title);
-        const result = list.join('\n');
+        if (list.length < 2)
+          return interaction.followUp("No tracks in the queue");
+        const result = list.join("\n");
         return interaction.followUp(result);
       } catch (e) {
         return interaction.followUp(`Something went wrong: ${e}`);
