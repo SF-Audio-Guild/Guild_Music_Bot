@@ -1,5 +1,6 @@
 const { Client, GuildMember, GatewayIntentBits } = require("discord.js");
 const { Player, useQueue } = require("discord-player");
+const { SpotifyExtractor } = require('@discord-player/extractor');
 
 require("dotenv").config();
 
@@ -22,7 +23,7 @@ client.on("error", console.error);
 client.on("warn", console.warn);
 
 const player = new Player(client);
-player.extractors.loadDefault();
+player.extractors.register(SpotifyExtractor, {});
 
 player.on("error", (queue, error) => {
   console.log(
